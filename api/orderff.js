@@ -7,22 +7,16 @@ export default async function handler(req, res) {
   const apiKey = process.env.VIPRESELLER_API_KEY;
   const apiId = process.env.VIPRESELLER_API_ID;
 
-  if (!apiKey || !apiId) {
-    return res.status(400).json({ error: "API Key atau ID belum diatur di environment" });
-  }
-
-  // Buat signature MD5
-  const crypto = await import('crypto');
+  // VIP Reseller butuh "sign" MD5(apiId+apiKey)
+  const crypto = require('crypto');
   const sign = crypto.createHash('md5').update(apiId + apiKey).digest('hex');
 
-  const params = new URLSearchParams({
-    key: apiKey,
-    sign: sign,
-    type: "order",
-    service: kode,
-    data_no: id,
-    testing: "false"
-  });
+  const params = new URLSearchParams();
+  params.append("key", apiKey);
+  params.append("sign", sign);
+  params.append("type", "order");
+  params.append("service", kode);
+  params.append("data_no", id);
 
   try {
     const response = await fetch("https://vip-reseller.co.id/api/game-order", {
@@ -33,17 +27,9 @@ export default async function handler(req, res) {
       body: params.toString()
     });
 
-    const text = await response.text();
-
-    // Coba parse jadi JSON
-    try {
-      const json = JSON.parse(text);
-      return res.status(200).json(json);
-    } catch (e) {
-      return res.status(500).json({ error: "Response bukan JSON", detail: text });
-    }
-
+    const result = await response.json();
+    return res.status(200).json(result);
   } catch (err) {
     return res.status(500).json({ error: "Gagal hubungi server", detail: err.message });
   }
-    }
+                }

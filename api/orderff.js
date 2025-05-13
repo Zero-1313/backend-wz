@@ -5,10 +5,14 @@ export default async function handler(req, res) {
 
   const { id, kode } = req.body;
   const apiKey = process.env.VIPRESELLER_API_KEY;
+  const apiId = process.env.VIPRESELLER_API_ID;
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'API Key tidak ditemukan' });
+  if (!apiKey || !apiId) {
+    return res.status(400).json({ error: "API Key atau ID belum diatur di environment variable" });
   }
+
+  const md5 = await import('crypto').then(mod => mod.createHash('md5'));
+  const sign = md5.update(apiId + apiKey).digest('hex');
 
   try {
     const response = await fetch("https://vip-reseller.co.id/api/game-order", {
@@ -16,22 +20,30 @@ export default async function handler(req, res) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         key: apiKey,
+        sign,
         type: "order",
         service: kode,
         data_no: id,
-        testing: false
-      })
+        testing: true // ubah ke false jika sudah real
+      }),
     });
 
     const text = await response.text();
+
+    // cek apakah JSON valid
     try {
       const json = JSON.parse(text);
       return res.status(200).json(json);
-    } catch {
-      return res.status(500).json({ error: "Response bukan JSON", detail: text });
+    } catch (jsonErr) {
+      return res.status(500).json({
+        error: "Response bukan JSON",
+        detail: text
+      });
     }
-
   } catch (err) {
-    return res.status(500).json({ error: "Gagal hubungi server", detail: err.message });
+    return res.status(500).json({
+      error: "Gagal hubungi server",
+      detail: err.message
+    });
   }
-}
+      }
